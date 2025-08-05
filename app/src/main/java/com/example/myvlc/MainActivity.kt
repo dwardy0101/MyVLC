@@ -7,6 +7,7 @@ import android.util.Log
 import android.widget.Button
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
 import org.videolan.libvlc.LibVLC
@@ -29,6 +30,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         // OGG
         val ogg: String = "https://www.sfxlibrary.com/data/sounds/69/69.ogg"
+        val ogg2: String = "https://dn720200.ca.archive.org/0/items/FREE_background_music_dhalius/BackgroundMusica2.ogg"
+        val ogg3: String = "https://commondatastorage.googleapis.com/codeskulptor-demos/pyman_assets/ateapill.ogg"
         //"https://upload.wikimedia.org/wikipedia/commons/c/c8/Example.ogg"
 
         // MP3
@@ -39,6 +42,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        enableEdgeToEdge()
+
+
         seekBar = findViewById(R.id.seekBar)
         playPauseButton = findViewById(R.id.playPauseButton)
         currentTimeText = findViewById(R.id.currentTime)
@@ -48,40 +54,62 @@ class MainActivity : AppCompatActivity() {
         libVLC = LibVLC(this, args)
         mediaPlayer = MediaPlayer(libVLC)
 
-        val media = Media(libVLC, mp3.toUri())
-        media.parse()
+        val media = Media(libVLC, ogg3.toUri())
         mediaPlayer.media = media
         media.release()
 
-        Log.d("VLCPLAYER", "MEDIA LENGTH = ${media.duration}  ---- ${media.isParsed}")
-        seekBar.max = mediaPlayer.length.toInt()
-
-        Log.d("VLCPLAYER", "seekbar max = ${seekBar.max}")
-        Log.d("VLCPLAYER", "seekbar min = ${seekBar.min}")
+        Log.d("VLCPLAYER", "MEDIA DATA = ${media.duration}  ---- ${mediaPlayer.isSeekable}")
+        seekBar.max = 100
 
         mediaPlayer.setEventListener { event ->
             Log.d("VLCPLAYER", "${event.type}")
             when (event.type) {
+                MediaPlayer.Event.Opening -> {
+                    Log.d("VLCPLAYER", "Opening")
+                }
                 MediaPlayer.Event.LengthChanged -> {
+                    Log.d("VLCPLAYER", "LengthChanged ${event.lengthChanged}")
                     runOnUiThread {
-                        seekBar.max = mediaPlayer.length.toInt()
                         durationText.text = formatTime(mediaPlayer.length)
                     }
                 }
 
                 MediaPlayer.Event.TimeChanged -> {
-                    Log.d("VLCPLAYER", "PLAYER TIME = ${getCurrentTime()}")
+                    Log.d("VLCPLAYER", "TimeChanged")
+                    Log.d("VLCPLAYER", "MEDIA DATA = ${media.duration}  ---- ${mediaPlayer.isSeekable}")
+
+                    Log.d("VLCPLAYER", "PLAYER TIME = ${mediaPlayer.time}")
+                    Log.d("VLCPLAYER", "PLAYER LENGTH = ${media.duration}")
                     runOnUiThread {
-                        seekBar.progress = mediaPlayer.time.toInt()
+                        /**
+                         * Conversion of Real Value to Progress Value
+                         * progress value is between min = 0 to max = 100
+                         *
+                         * ge set nako seekbar.max = 100, by default 0-100 na daan.
+                         *
+                         * Para makuha nato ang equivalent progress-value, apply ta Normalization (the part of the whole)
+                         *
+                         * Formula:
+                         * result (as percentage/decimal) = player time(ms - part) / player length (ms - whole)
+                         * result (as whole number) = result * 100
+                         *
+                         * important nga naka float para ma preserve nato ang fractional part before ma convert to whole number = progress value
+                         */
+
+                        seekBar.progress = ((mediaPlayer.time.toFloat() / mediaPlayer.length.toFloat()) * 100).toInt()
+                        Log.d("VLCPLAYER", "PLAYER TIME PROGRESS = ${seekBar.progress}")
                         currentTimeText.text = formatTime(mediaPlayer.time)
                     }
                 }
 
                 MediaPlayer.Event.EndReached -> {
+                    Log.d("VLCPLAYER", "EndReached ${mediaPlayer.media}")
                     playPauseButton.text = "Play"
+                    mediaPlayer.stop()
                 }
 
                 MediaPlayer.Event.EncounteredError -> {
+                    Log.d("VLCPLAYER", "EncounteredError")
                     Log.d("VLCPLAYER", "Error Occured!")
                 }
             }
@@ -92,7 +120,13 @@ class MainActivity : AppCompatActivity() {
                 mediaPlayer.pause()
                 playPauseButton.text = "Play"
             } else {
-                mediaPlayer.play()
+                try {
+                    mediaPlayer.play()
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
                 playPauseButton.text = "Pause"
             }
         }
@@ -104,14 +138,34 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar) {
-                val pos = seekBar.progress * 1000L
-                mediaPlayer.time = pos
+                val timeInMs = ((seekBar.progress / 100f) * mediaPlayer.length).toLong()
+                mediaPlayer.time = timeInMs
+
+                Log.d("VLCPLAYER", "onStopTrackingTouch = ${mediaPlayer.time}")
                 isSeeking = false
             }
 
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                Log.d("VLCPLAYER", "onProgressChanged = $progress")
-                currentTimeText.text = formatTime(progress * 1000L)
+                Log.d("VLCPLAYER", "seekbar max = ${seekBar.max}")
+                Log.d("VLCPLAYER", "seekbar min = ${seekBar.min}")
+
+                Log.d("VLCPLAYER", "onProgressChanged1 = ${seekBar.progress}")
+
+                /**
+                 * Conversion of Progress Value to Real Value in ms
+                 *
+                 * Formula:
+                 * result (percentage/decimal)= progress (whole number) / 100 (as float))
+                 * milliseconds = result * player length
+                 *
+                 * using float as divisor preserves the decimal part and casting to long leaves as ms value
+                 */
+                val timeInMs = ((progress / 100f) * mediaPlayer.length).toLong()
+                Log.d("VLCPLAYER", "onProgressChanged2 = $timeInMs")
+
+                if (fromUser) {
+                    currentTimeText.text = formatTime(timeInMs)
+                }
             }
         })
     }
