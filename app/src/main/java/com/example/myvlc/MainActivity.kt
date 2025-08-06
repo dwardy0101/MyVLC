@@ -37,7 +37,7 @@ class MainActivity : AppCompatActivity() {
         val ogg: String = "https://www.sfxlibrary.com/data/sounds/69/69.ogg"
         val ogg2: String = "https://dn720200.ca.archive.org/0/items/FREE_background_music_dhalius/BackgroundMusica2.ogg"
         val ogg3: String = "https://commondatastorage.googleapis.com/codeskulptor-demos/pyman_assets/ateapill.ogg"
-        //"https://upload.wikimedia.org/wikipedia/commons/c/c8/Example.ogg"
+        val ogg4: String = "https://storage.googleapis.com/nc_webrtc_recording/78974d5f-55a8-4469-85a8-e81002001b05/38e6718d-4fd2-4bd0-97e7-6d780faec7c5/audio.ogg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=nativecamp-speech-to-text%40nativecamp-91104.iam.gserviceaccount.com%2F20250806%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20250806T014653Z&X-Goog-Expires=21600&X-Goog-SignedHeaders=host&X-Goog-Signature=8ff40076c6d810f96a1f84f697a27e8ff8194e94bf2f1572062433d5796c4161ab84c18190838c0186d172488052f66182ba50486b1061df0832b3d307dd9ff3195f227a0de2dcdd7a4f72960707437a9cdb029389c50659e16ba2817d4b6e7d1aa79bd0a247b8849adc56a07bf6b8f096370e801bd04f32e906c32726f1d62b10cb156d1f967ac17e4dbeec405b1c03f145ff35923af416db612ae5d26c2d9bfecee99b7099bd04b51efc620a011571559cc8a7cb48848293d52c51a51f4e997c1a285f852fedeb4d08e6740bb0a08f46f9dd76da77024fb9344075c82ff53765455d4df102e72857f134edc12434ba3123493f80803a7142ce24027e3b2e22"
 
         // MP3
         val mp3: String = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
@@ -72,13 +72,20 @@ class MainActivity : AppCompatActivity() {
         libVLC = LibVLC(this, args)
         mediaPlayer = MediaPlayer(libVLC)
 
-        val oggFile = copyAssetToInternalStorage(this, "ateapill.ogg")
+        // Locally
+//        val oggFile = copyAssetToInternalStorage(this, "ateapill.ogg")
+//        val media = Media(libVLC, Uri.fromFile(oggFile))
 
-        val media = Media(libVLC, Uri.fromFile(oggFile))
+        // Network
+        val media = Media(libVLC, ogg4.toUri())
+//        media.addOption(":input-fast-seek")
+//        media.addOption(":no-audio-time-stretch")
+//        media.addOption(":file-caching=1000")  // Increase caching time for smoother seeks
+//        media.addOption(":no-sout-keep")
+//        media.addOption(":no-drop-late-frames")
 
-        //val media = Media(libVLC, ogg3.toUri())
         mediaPlayer.media = media
-        media.release()
+//        media.release()
 
         Log.d("VLCPLAYER", "MEDIA DATA = ${media.duration}  ---- ${mediaPlayer.isSeekable}")
         seekBar.max = 100
@@ -153,8 +160,15 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar) {
-                val timeInMs = ((seekBar.progress / 100f) * mediaPlayer.length).toLong()
-                mediaPlayer.time = timeInMs
+                val timeInMs = ((seekBar.progress / 100f) * mediaPlayer.length).toFloat()
+                val posAsFloat = (seekBar.progress / 100f)
+
+                //mediaPlayer.pause()
+                mediaPlayer.position = posAsFloat // fixes the weird seeking backward behavior of OGG file
+
+                Handler(Looper.getMainLooper()).post {
+                    mediaPlayer.play()
+                }
 
                 Log.d("VLCPLAYER", "onStopTrackingTouch = ${mediaPlayer.time}")
                 isSeeking = false
