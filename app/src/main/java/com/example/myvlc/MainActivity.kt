@@ -1,5 +1,7 @@
 package com.example.myvlc
 
+import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -10,10 +12,13 @@ import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import org.videolan.libvlc.LibVLC
 import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
-import org.videolan.libvlc.interfaces.IMedia
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -40,9 +45,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
         enableEdgeToEdge()
+
+        setContentView(R.layout.activity_main)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
+        }
 
 
         seekBar = findViewById(R.id.seekBar)
@@ -50,11 +60,23 @@ class MainActivity : AppCompatActivity() {
         currentTimeText = findViewById(R.id.currentTime)
         durationText = findViewById(R.id.duration)
 
-        val args = ArrayList<String>()
+        val args = arrayListOf(
+            "--codec=avcodec",             // force software decoding
+            //"--no-mediacodec",             // disable MediaCodec completely
+            "--no-audio-time-stretch",     // optional: disable pitch preservation
+            "--no-drop-late-frames",
+            "--no-skip-frames",
+            "--verbose=2"
+        )
+
         libVLC = LibVLC(this, args)
         mediaPlayer = MediaPlayer(libVLC)
 
-        val media = Media(libVLC, ogg3.toUri())
+        val oggFile = copyAssetToInternalStorage(this, "ateapill.ogg")
+
+        val media = Media(libVLC, Uri.fromFile(oggFile))
+
+        //val media = Media(libVLC, ogg3.toUri())
         mediaPlayer.media = media
         media.release()
 
@@ -82,18 +104,11 @@ class MainActivity : AppCompatActivity() {
                     Log.d("VLCPLAYER", "PLAYER LENGTH = ${media.duration}")
                     runOnUiThread {
                         /**
-                         * Conversion of Real Value to Progress Value
-                         * progress value is between min = 0 to max = 100
-                         *
-                         * ge set nako seekbar.max = 100, by default 0-100 na daan.
-                         *
-                         * Para makuha nato ang equivalent progress-value, apply ta Normalization (the part of the whole)
-                         *
-                         * Formula:
-                         * result (as percentage/decimal) = player time(ms - part) / player length (ms - whole)
-                         * result (as whole number) = result * 100
-                         *
-                         * important nga naka float para ma preserve nato ang fractional part before ma convert to whole number = progress value
+                         * Normalize.
+                         * a = player position
+                         * b = player duration/length
+                         * c = 100
+                         * progress = (a * b) / c
                          */
 
                         seekBar.progress = ((mediaPlayer.time.toFloat() / mediaPlayer.length.toFloat()) * 100).toInt()
@@ -152,13 +167,12 @@ class MainActivity : AppCompatActivity() {
                 Log.d("VLCPLAYER", "onProgressChanged1 = ${seekBar.progress}")
 
                 /**
-                 * Conversion of Progress Value to Real Value in ms
+                 * Normalize.
+                 * a = progress
+                 * b = 100f
+                 * c = player duration/length
                  *
-                 * Formula:
-                 * result (percentage/decimal)= progress (whole number) / 100 (as float))
-                 * milliseconds = result * player length
-                 *
-                 * using float as divisor preserves the decimal part and casting to long leaves as ms value
+                 * ms = (a * b) / c
                  */
                 val timeInMs = ((progress / 100f) * mediaPlayer.length).toLong()
                 Log.d("VLCPLAYER", "onProgressChanged2 = $timeInMs")
@@ -198,6 +212,19 @@ class MainActivity : AppCompatActivity() {
 
         return currentTime * 0.001f //to float
     }
+
+    private fun copyAssetToInternalStorage(context: Context, assetName: String): File {
+        val file = File(context.filesDir, assetName)
+        if (!file.exists()) {
+            context.assets.open(assetName).use { inputStream ->
+                FileOutputStream(file).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+        }
+        return file
+    }
+
 
     override fun onDestroy() {
         super.onDestroy()
