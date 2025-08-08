@@ -36,6 +36,21 @@ android {
     viewBinding {
         enable = true
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true // Optional; set if you're doing custom APKs
+            pickFirsts += listOf(
+                "lib/arm64-v8a/libc++_shared.so",
+                "lib/armeabi-v7a/libc++_shared.so",
+                "lib/x86/libc++_shared.so",
+                "lib/x86_64/libc++_shared.so"
+            )
+        }
+    }
+    buildFeatures {
+        viewBinding = true
+    }
 }
 
 dependencies {
@@ -49,6 +64,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    implementation("org.videolan.android:libvlc-all:3.5.1")
+    implementation("org.videolan.android:libvlc-all:4.0.0-eap20")
+    implementation("com.mrljdx:ffmpeg-kit-full:6.1.4")
 
 }

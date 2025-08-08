@@ -7,11 +7,26 @@
     android:id="@+id/main"
     android:padding="20dp">
 
-    <Button
-        android:id="@+id/playPauseButton"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Play" />
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/rewind"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="&lt;&lt;" />
+        <Button
+            android:id="@+id/playPauseButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Play" />
+        <Button
+            android:id="@+id/forward"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="&gt;&gt;" />
+    </LinearLayout>
 
     <SeekBar
         android:id="@+id/seekBar"
